@@ -1,0 +1,236 @@
+#include <SoftwareSerial.h>
+#include <LiquidCrystal.h>
+
+// Motor Declaration
+int IN1 = A4;
+int IN2 = A3;
+int IN3 = A2;
+int IN4 = A1;
+
+// Speed Control Declaration
+int enA = 3;
+int enB = 11;
+
+SoftwareSerial mySerial(13,12); //HC-05 Tx & Rx is connected to Arduino #3 & #2
+
+// LCD Configuration
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+int MOTOR_SPEED = 100;
+char data;
+
+void setup() {
+  mySerial.begin(9600);
+  Serial.begin(9600);
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+
+  pinMode(enA,OUTPUT);
+  pinMode(enB,OUTPUT);
+  pinMode(A5,OUTPUT);
+}
+
+void loop() {
+
+  if(mySerial.available()>0)
+  {
+    data=mySerial.read();
+    Serial.println(data);
+  }
+
+  switch (data) {
+
+    case 'F':
+      forward();
+      break;
+
+    case 'B':
+      backward();
+      break;
+
+    case 'L':
+      turnLeft();
+      break;
+
+    case 'R':
+      turnRight();
+      break;
+
+    case 'S':
+      Stop();
+      break;
+
+    case 'G':
+      forwardLeft();
+      break;
+
+    case 'I':
+      forwardRight();
+      break;
+
+    case 'H':
+      backLeft();
+      break;
+    
+    case 'J':
+      backRight();
+      break;
+
+    case 'V':
+      hornON();
+      break;
+
+    case 'v':
+      hornOFF();
+      break;
+
+    case '0':
+      MOTOR_SPEED = 140;
+      break;
+
+    case '1':
+      MOTOR_SPEED = 150;
+      break;
+
+    case '2':
+      MOTOR_SPEED = 160;
+      break;
+
+    case '3':
+      MOTOR_SPEED = 170;
+      break;
+
+    case '4':
+      MOTOR_SPEED = 180;
+      break;
+
+    case '5':
+      MOTOR_SPEED = 190;
+      break;
+
+    case '6':
+      MOTOR_SPEED = 200;
+      break;
+
+    case '7':
+      MOTOR_SPEED = 210;
+      break;
+
+    case '8':
+      MOTOR_SPEED = 220;
+      break;
+
+    case '9':
+      MOTOR_SPEED = 255;
+      break;
+  }
+
+}
+
+void forward() {  //forword
+  analogWrite(enA, MOTOR_SPEED);
+  analogWrite(enB, MOTOR_SPEED);
+
+  digitalWrite(IN1, LOW);   //Right Motor forword Pin 
+  digitalWrite(IN2, HIGH);  //Right Motor backword Pin 
+  digitalWrite(IN3, HIGH);   //Left Motor backword Pin 
+  digitalWrite(IN4, LOW);  //Left Motor forword Pin 
+}
+
+void backward() {
+  analogWrite(enA, MOTOR_SPEED);
+  analogWrite(enB, MOTOR_SPEED);
+
+  digitalWrite(IN1, HIGH);  //Right Motor forword Pin 
+  digitalWrite(IN2, LOW);   //Right Motor backword Pin 
+  digitalWrite(IN3, LOW);   //Left Motor backword Pin 
+  digitalWrite(IN4, HIGH);  //Left Motor forword Pin 
+
+}
+
+void forwardLeft() { //turnLeft
+  analogWrite(enA, MOTOR_SPEED);
+  analogWrite(enB, MOTOR_SPEED/2);
+
+  digitalWrite(IN1, LOW);   //Right Motor forword Pin 
+  digitalWrite(IN2, HIGH);  //Right Motor backword Pin 
+  digitalWrite(IN3, HIGH);   //Left Motor backword Pin 
+  digitalWrite(IN4, LOW);  //Left Motor forword Pin 
+
+}
+
+void forwardRight() { //turnRight
+
+  analogWrite(enA, MOTOR_SPEED/2);
+  analogWrite(enB, MOTOR_SPEED);
+
+  digitalWrite(IN1, LOW);  //Right Motor forword Pin 
+  digitalWrite(IN2, HIGH); //Right Motor backword Pin  
+  digitalWrite(IN3, HIGH);  //Left Motor backword Pin 
+  digitalWrite(IN4, LOW); //Left Motor forword Pin 
+}
+
+void turnLeft() { //turnLeft
+  analogWrite(enA, 180);
+  analogWrite(enB, 180);
+
+  digitalWrite(IN1, LOW);   // Right Motor forword Pin 
+  digitalWrite(IN2, HIGH);  // Right Motor backword Pin 
+  digitalWrite(IN3, LOW);   // Left Motor backword Pin 
+  digitalWrite(IN4, HIGH);  // Left Motor forword Pin 
+
+}
+
+void turnRight() { //turnRight
+
+  analogWrite(enA, 180);
+  analogWrite(enB, 180);
+
+  digitalWrite(IN1, HIGH);  //Right Motor forword Pin 
+  digitalWrite(IN2, LOW);   //Right Motor backword Pin  
+  digitalWrite(IN3, HIGH);  //Left Motor backword Pin 
+  digitalWrite(IN4, LOW);   //Left Motor forword Pin 
+
+}
+
+void backLeft() {
+  analogWrite(enA, MOTOR_SPEED);
+  analogWrite(enB, MOTOR_SPEED/2);
+
+  digitalWrite(IN1, HIGH);  //Right Motor forword Pin 
+  digitalWrite(IN2, LOW);   //Right Motor backword Pin 
+  digitalWrite(IN3, LOW);  //Left Motor backword Pin 
+  digitalWrite(IN4, HIGH);   //Left Motor forword Pin 
+}
+
+void backRight() {
+  analogWrite(enA, MOTOR_SPEED/2);
+  analogWrite(enB, MOTOR_SPEED);
+
+  digitalWrite(IN1, HIGH);  //Right Motor forword Pin 
+  digitalWrite(IN2, LOW);   //Right Motor backword Pin 
+  digitalWrite(IN3, LOW);  //Left Motor backword Pin 
+  digitalWrite(IN4, HIGH);   //Left Motor forword Pin 
+
+}
+
+void Stop() { //stop
+  analogWrite(enA, 0);
+  analogWrite(enB, 0);
+
+  digitalWrite(IN1, LOW); //Right Motor forword Pin 
+  digitalWrite(IN2, LOW); //Right Motor backword Pin 
+  digitalWrite(IN3, LOW); //Left Motor backword Pin 
+  digitalWrite(IN4, LOW); //Left Motor forword Pin 
+}
+
+void hornON() {
+  analogWrite(A5,255);
+}
+
+void hornOFF() {
+  analogWrite(A5,0);
+}
