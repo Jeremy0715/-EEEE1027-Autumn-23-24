@@ -1,0 +1,110 @@
+#include <LiquidCrystal.h>
+
+// Pin Definitions
+const int IN1 = 2;
+const int IN2 = 3;
+const int IN3 = 12;
+const int IN4 = 11;
+const int leftIRSensor = A1;
+const int rightIRSensor = A2;
+const int encoderPin = 13;
+
+// Motor Control Constants
+const int MOTOR_SPEED = 90;  // Adjust the motor speed as needed
+
+// Encoder Constants
+const int encoderIntervals = 20;
+const float wheelCircumference = 0.212;  // in meters
+
+// LCD Configuration
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+// Variables
+float totalDistance = 0.0;  // Variable to store total distance (in meters)
+
+void setup()
+{
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(leftIRSensor, INPUT);
+  pinMode(rightIRSensor, INPUT);
+  pinMode(encoderPin, INPUT_PULLUP);
+  lcd.begin(16, 2);
+}
+
+void loop()
+{
+  // Read sensor values
+  int leftSensorValue = digitalRead(leftIRSensor);
+  int rightSensorValue = digitalRead(rightIRSensor);
+
+  // Update total distance
+  updateDistance();
+
+  // Display information on LCD
+  displayInformation();
+
+  // Motor control logic
+  controlMotors(leftSensorValue, rightSensorValue);
+}
+
+void updateDistance()
+{
+  // Update total distance based on encoder input
+  int encoderState = digitalRead(encoderPin);
+  static int prevEncoderState = 1;
+
+  if (encoderState != prevEncoderState && encoderState == 0)
+  {
+    // Calculate and update distance traveled
+    totalDistance += (wheelCircumference / encoderIntervals);
+  }
+
+  prevEncoderState = encoderState;
+}
+
+void displayInformation() {
+  // Display total distance on the first row with the unit "m"
+  lcd.setCursor(0, 0);
+  lcd.print("Total: ");
+  lcd.print(totalDistance, 2);  // Display total distance with 2 decimal places
+  lcd.print("m");
+}
+
+void controlMotors(int leftSensorValue, int rightSensorValue) {
+  // Motor control logic
+  if (leftSensorValue == 1 && rightSensorValue == 1)
+  {
+    // Move forward
+    analogWrite(IN1, 0);
+    analogWrite(IN2, MOTOR_SPEED);
+    analogWrite(IN3, 0);
+    analogWrite(IN4, MOTOR_SPEED);
+  }
+
+  else if (leftSensorValue == 1 && rightSensorValue == 0) // Turn left
+  {
+    // Turn left
+    analogWrite(IN1, 255);
+    analogWrite(IN2, 0);
+    analogWrite(IN3, 0);
+    analogWrite(IN4, 255);
+  }
+
+  else if (leftSensorValue == 0 && rightSensorValue == 1) { // Turn right
+    // Turn right
+    analogWrite(IN1, 0);
+    analogWrite(IN2, 255);
+    analogWrite(IN3, 255);
+    analogWrite(IN4, 0);
+  }
+
+  else { // Stop
+    analogWrite(IN1, 0);
+    analogWrite(IN2, 0);
+    analogWrite(IN3, 0);
+    analogWrite(IN4, 0);
+  }
+}
