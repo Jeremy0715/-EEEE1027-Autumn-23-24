@@ -1,0 +1,295 @@
+// Follow the path with a ramp. Display the ramp angle.
+// Stop at the top of the ramp for 4 seconds and rotates for 360 degree
+
+#include <LiquidCrystal.h>
+#include <Adafruit_MPU6050.h>
+#include <Adafruit_Sensor.h>
+#include <Wire.h>
+#include <math.h>  // Include the math library for the arcsin function
+
+Adafruit_MPU6050 mpu;
+
+// Pin Definitions
+const int IN1 = 2;
+const int IN2 = 13;
+const int IN3 = A1;
+const int IN4 = A2;
+
+// Speed Control Declaration
+int enA = 3;
+int enB = 11;
+
+const int leftIRSensor = 12;
+const int rightIRSensor = A3;
+const int encoderPin = 1;
+
+// Motor Control Constants
+int MOTOR_SPEED = 150;  // Adjust the motor speed as needed
+
+// Encoder Constants
+const int encoderIntervals = 20;
+const float wheelCircumference = 0.212;  // in meters
+
+// LCD Configuration
+LiquidCrystal lcd(8, 9, 4, 5, 6, 7);
+
+int rampToggle=0;
+int task2Toggle = 0;
+
+// Function declarations
+void displayAccelerationValue(float acceleration);
+
+// Variable to store the start time for delays
+unsigned long startDelayTime;
+bool delayInProgress = false;
+
+// Variables
+float totalDistance = 0.0;  // Variable to store total distance (in meters)
+unsigned long startTime = 0;  // Variable to store the start time for movement // Variable to store the start time for delays
+unsigned long totalTime = 0;  // Variable to store total time traveled (in milliseconds)
+bool isMoving = false;  // Flag to track whether the vehicle is currently moving
+
+
+void setup() {
+
+  pinMode(IN1, OUTPUT);
+  pinMode(IN2, OUTPUT);
+  pinMode(IN3, OUTPUT);
+  pinMode(IN4, OUTPUT);
+  pinMode(leftIRSensor, INPUT);
+  pinMode(rightIRSensor, INPUT);
+  pinMode(encoderPin, INPUT_PULLUP);
+  lcd.begin(16, 2);
+
+  //Serial.begin(115200);
+
+  //mpu.begin();
+  // Try to initialize!
+	if (!mpu.begin()) {
+		Serial.println("Failed to find MPU6050 chip");
+		while (1) {
+		  delay(10);
+		}
+	}
+	Serial.println("MPU6050 Found!");
+
+  //set accelerometer range to +-8G
+	mpu.setAccelerometerRange(MPU6050_RANGE_8_G);
+
+	// set gyro range to +- 500 deg/s
+	mpu.setGyroRange(MPU6050_RANGE_500_DEG);
+
+	// set filter bandwidth to 21 Hz
+	mpu.setFilterBandwidth(MPU6050_BAND_21_HZ);
+}
+
+void loop() {
+  
+  // Read sensor values
+  int leftSensorValue = digitalRead(leftIRSensor);
+  int rightSensorValue = digitalRead(rightIRSensor);
+
+  // Motor control logic
+  controlMotors(leftSensorValue, rightSensorValue);
+
+  if (rampToggle == 0) {
+    /* Get new sensor events with the readings */
+	  sensors_event_t a, g, temp;
+  	mpu.getEvent(&a, &g, &temp);
+    displayAccelerationValue(a.acceleration.y);
+
+    // Check for ramp condition
+    while (a.acceleration.y >= 3 ) {
+
+      // Car is moving up the ramp
+      analogWrite(enA, 255);
+      analogWrite(enB, 255);
+
+      digitalWrite(IN1, LOW);   //Right Motor forword Pin 
+      digitalWrite(IN2, HIGH);  //Right Motor backword Pin 
+      digitalWrite(IN3, LOW);   //Left Motor backword Pin 
+      digitalWrite(IN4, HIGH);  //Left Motor forword Pin 
+      delay(1350);
+
+      // stop for 4s
+      analogWrite(enA, 0);
+      analogWrite(enB, 0);
+
+      digitalWrite(IN1, LOW); //Right Motor forword Pin 
+      digitalWrite(IN2, LOW); //Right Motor backword Pin 
+      digitalWrite(IN3, LOW); //Left Motor backword Pin 
+      digitalWrite(IN4, LOW); //Left Motor forword Pin 
+      delay(4000);
+
+      // rotate 360 degree
+      analogWrite(enA, 255);
+      analogWrite(enB, 255);
+
+      digitalWrite(IN1, LOW);  //Right Motor forword Pin 
+      digitalWrite(IN2, HIGH);   //Right Motor backword Pin  
+      digitalWrite(IN3, HIGH);  //Left Motor backword Pin 
+      digitalWrite(IN4, LOW);   //Left Motor forword Pin 
+      delay(2750);
+
+      // delay speed for going down the ramp
+      analogWrite(enA, 90);
+      analogWrite(enB, 90);
+
+      digitalWrite(IN1, LOW);   //Right Motor forword Pin 
+      digitalWrite(IN2, HIGH);  //Right Motor backword Pin 
+      digitalWrite(IN3, LOW);   //Left Motor backword Pin 
+      digitalWrite(IN4, HIGH);  //Left Motor forword Pin 
+      delay(2000);
+
+      rampToggle = 1;
+      MOTOR_SPEED = 90; 
+      task2Toggle = 1;
+      totalDistance = 0;
+      break;
+    }
+
+  }
+       
+  // Update total distance and time
+  updateDistanceAndTime();
+
+  // Display information on LCD
+  displayInformation();
+  
+  // Move for 130 cm, stop for 2 seconds, and continue
+  while ( totalDistance >= 1.3 && task2Toggle == 1)
+  {
+    stop();
+    task2Toggle = 2;
+    break;
+  }
+}
+
+void updateDistanceAndTime()
+{
+  // Update total distance based on encoder input
+  int encoderState = digitalRead(encoderPin);
+  static int prevEncoderState = 1;
+
+  if (encoderState != prevEncoderState && encoderState == 0)
+  {
+    // Calculate and update distance traveled
+    totalDistance += (wheelCircumference / encoderIntervals);
+
+    // Start counting time when the motors are moving
+    if (!isMoving) {
+      startTime = millis();
+      isMoving = true;
+    }
+  }
+
+  prevEncoderState = encoderState;
+
+  // Update elapsed time only when the vehicle is moving
+  if (isMoving) {
+    unsigned long currentTime = millis();
+    unsigned long elapsedTime = currentTime - startTime;
+    totalTime += elapsedTime;
+    startTime = currentTime;  // Reset startTime for the next interval
+  }
+}
+
+void displayInformation()
+{
+  // Display total distance on the first row with the unit "m"
+  lcd.setCursor(0, 0);
+  lcd.print("Total: ");
+  lcd.print(totalDistance, 2);  // Display total distance with 2 decimal places
+  lcd.print("m");
+
+  // Display total time traveled on the second row
+  lcd.setCursor(0, 1);
+  //lcd.print("Time: ");
+
+  // Calculate the total time by adding the time elapsed before stopping to the current time
+  unsigned long displayTime = totalTime + (isMoving ? millis() - startTime : 0);
+
+  lcd.print(displayTime / 1000);
+  lcd.print("s");
+}
+
+void controlMotors(int leftSensorValue, int rightSensorValue) {
+  
+  // Motor control logic
+  if (leftSensorValue == 0 && rightSensorValue == 0)
+  {
+    analogWrite(enA, MOTOR_SPEED);
+    analogWrite(enB, MOTOR_SPEED);
+
+    digitalWrite(IN1, LOW);   // Right Motor forword Pin 
+    digitalWrite(IN2, HIGH);  // Right Motor backword Pin 
+    digitalWrite(IN3, LOW);   // Left Motor backword Pin 
+    digitalWrite(IN4, HIGH);  // Left Motor forword Pin 
+  }
+
+   if (leftSensorValue == 0 && rightSensorValue == 1) // Turn left
+  {
+    analogWrite(enA, 255);
+    analogWrite(enB, 255);
+
+    digitalWrite(IN1, HIGH);  // Right Motor forword Pin 
+    digitalWrite(IN2, LOW);   // Right Motor backword Pin 
+    digitalWrite(IN3, LOW);   // Left Motor backword Pin 
+    digitalWrite(IN4, HIGH);  // Left Motor forword Pin 
+  }
+
+  else if (leftSensorValue == 1 && rightSensorValue == 0) // Turn right
+  {
+    analogWrite(enA, 255);
+    analogWrite(enB, 255);
+
+    digitalWrite(IN1, LOW);   // Right Motor forword Pin 
+    digitalWrite(IN2, HIGH);  // Right Motor backword Pin  
+    digitalWrite(IN3, HIGH);  // Left Motor backword Pin 
+    digitalWrite(IN4, LOW);   // Left Motor forword Pin 
+  }
+  else if (leftSensorValue == 1 && rightSensorValue == 1) // Stop
+  {
+    analogWrite(enA, 0);
+    analogWrite(enB, 0);
+
+    digitalWrite(IN1, LOW);   // Right Motor forword Pin 
+    digitalWrite(IN2, LOW);   // Right Motor backword Pin 
+    digitalWrite(IN3, LOW);   // Left Motor backword Pin 
+    digitalWrite(IN4, LOW);   // Left Motor forword Pin 
+
+  // Reset movement-related variables
+  isMoving = false;
+  }
+}
+
+void displayAccelerationValue(float accelerationY)
+{
+  // Assuming accelerationY is in m/s^2 including gravity
+  float g = 9.8;  // Acceleration due to gravity in m/s^2
+
+  // Ensure the acceleration value is within the valid range for arcsin
+  accelerationY = constrain(accelerationY, -g, g);
+
+  // Calculate the angle in degrees using arcsin
+  float angleDegrees = asin(accelerationY / g) * (180.0 / PI);
+
+  // Display angle in degrees on the second row
+  lcd.setCursor(6, 1);
+  //lcd.print("Angle:");
+  lcd.print(angleDegrees, 2);
+  lcd.print(" deg");
+}
+
+void stop()
+{
+  // Stop the vehicle
+  analogWrite(IN1, 0);
+  analogWrite(IN2, 0);
+  analogWrite(IN3, 0);
+  analogWrite(IN4, 0);
+
+  // Reset movement-related variables
+  isMoving = false;
+  delay(2000);
+}
